@@ -142,7 +142,7 @@ module Meta = struct
 		| Remove
 		| Require
 		| RequiresAssign
-		(* | Resolve *)
+		| Resolve
 		| ReplaceReflection
 		| Rtti
 		| Runtime
