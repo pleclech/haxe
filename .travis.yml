@@ -1,9 +1,5 @@
 language: cpp
 
-os:
-  - linux
-  - osx
-
 env:
   global:
     # make variables
@@ -31,33 +27,72 @@ apt_targets:
   - &apt_php    [*common_apt, php5-cli, php5-mysql, php5-sqlite]
   - &apt_cs     [*common_apt, mono-devel, mono-mcs]
   - &apt_python [*common_apt, python3]
-  - &apt_flash  [*common_apt, libgd2-xpm, ia32-libs, ia32-libs-multiarch]
+  - &apt_flash  [*common_apt, libgd2-xpm, ia32-libs, ia32-libs-multiarch] # https://github.com/travis-ci/travis-ci/issues/3713
 
 matrix:
   include:
-    - env: TEST=third-party
+    #########
+    # linux #
+    #########
+    - os: linux
+      env: TEST=third-party
       addons: {apt: {packages: [*apt_php, *apt_cpp, *apt_cs, *apt_python]}}
-    - env: TEST=macro
+    - os: linux
+      env: TEST=macro
       addons: {apt: {packages: *apt_cs}}
-    - env: TEST=neko
-    - env: TEST=js
+    - os: linux
+      env: TEST=neko
+    - os: linux
+      env: TEST=js
       addons: {sauce_connect: true}
-    - env: TEST=php
+    - os: linux
+      env: TEST=php
       addons: {apt: {packages: *apt_php}}
-    - env: TEST=cpp
+    - os: linux
+      env: TEST=cpp
       addons: {apt: {packages: *apt_cpp}}
-    - env: TEST=flash9
+    - os: linux
+      env: TEST=flash9
       sudo: required
       # addons: {apt: {packages: *apt_flash}}
-    - env: TEST=as3
+    - os: linux
+      env: TEST=as3
       sudo: required
       # addons: {apt: {packages: *apt_flash}}
-    - env: TEST=java
-    - env: TEST=cs
+    - os: linux
+      env: TEST=java
+    - os: linux
+      env: TEST=cs
       addons: {apt: {packages: *apt_cs}}
-    - env: TEST=python
+    - os: linux
+      env: TEST=python
       addons: {apt: {packages: *apt_python}}
-  # fast_finish: true #https://github.com/travis-ci/travis-ci/issues/1696
+
+    #######
+    # osx #
+    #######
+    - os: osx
+      env: TEST=third-party
+    - os: osx
+      env: TEST=macro
+    - os: osx
+      env: TEST=neko
+    - os: osx
+      env: TEST=js
+    - os: osx
+      env: TEST=php
+    - os: osx
+      env: TEST=cpp
+    - os: osx
+      env: TEST=flash9
+    - os: osx
+      env: TEST=as3
+    - os: osx
+      env: TEST=java
+    - os: osx
+      env: TEST=cs
+    - os: osx
+      env: TEST=python
 
 before_script:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
