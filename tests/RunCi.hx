@@ -625,29 +625,16 @@ class RunCi {
 						runCommand("node", ["-e", "var unit = require('./bin/unit.js').unit; unit.Test.main(); process.exit(unit.Test.success ? 0 : 1);"]);
 					}
 
-					if (Sys.getEnv("TRAVIS_SECURE_ENV_VARS") == "true" && systemName == "Linux") {
-						var scVersion = "sc-4.3-linux";
-						runCommand("wget", ['https://saucelabs.com/downloads/${scVersion}.tar.gz'], true);
-						runCommand("tar", ["-xf", '${scVersion}.tar.gz']);
-
-						//start sauce-connect
-						var scReadyFile = "sauce-connect-ready-" + Std.random(100);
-						var sc = new Process('${scVersion}/bin/sc', [
-							"-i", Sys.getEnv("TRAVIS_JOB_NUMBER"),
-							"-f", scReadyFile
-						]);
-						while(!FileSystem.exists(scReadyFile)) {
-							Sys.sleep(0.5);
-						}
+					var env = Sys.environment();
+					if (env.exists("SAUCE_USERNAME") && env.exists("SAUCE_ACCESS_KEY")) {
+						// sauce-connect should have been started
 
 						runCommand("npm", ["install", "wd", "q"], true);
 						haxelibInstallGit("dionjwa", "nodejs-std", "master", null, true, "nodejs");
 						runCommand("haxe", ["compile-saucelabs-runner.hxml"]);
 						var server = new Process("nekotools", ["server"]);
 						runCommand("node", ["bin/RunSauceLabs.js", "unit-js.html"]);
-
 						server.close();
-						sc.close();
 					}
 
 					infoMsg("Test optimization:");

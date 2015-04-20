@@ -41,6 +41,7 @@ matrix:
       addons: {apt: {packages: *apt_cs}}
     - env: TEST=neko
     - env: TEST=js
+      addons: {sauce_connect: true}
     - env: TEST=php
       addons: {apt: {packages: *apt_php}}
     - env: TEST=cpp
