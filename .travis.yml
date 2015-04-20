@@ -16,18 +16,18 @@ env:
 sudo: false
 addons:
   apt:
-    packages: &common_apt
+    packages: &apt_common
       - ocaml-native-compilers
       - camlp4
       - zlib1g-dev
       - libgc-dev
 
 apt_targets:
-  - &apt_cpp    [*common_apt, gcc-multilib, g++-multilib]
-  - &apt_php    [*common_apt, php5-cli, php5-mysql, php5-sqlite]
-  - &apt_cs     [*common_apt, mono-devel, mono-mcs]
-  - &apt_python [*common_apt, python3]
-  - &apt_flash  [*common_apt, libgd2-xpm, ia32-libs, ia32-libs-multiarch] # https://github.com/travis-ci/travis-ci/issues/3713
+  - &apt_cpp    [*apt_common, gcc-multilib, g++-multilib]
+  - &apt_php    [*apt_common, php5-cli, php5-mysql, php5-sqlite]
+  - &apt_cs     [*apt_common, mono-devel, mono-mcs]
+  - &apt_python [*apt_common, python3]
+  - &apt_flash  [*apt_common, libgd2-xpm, ia32-libs, ia32-libs-multiarch] # https://github.com/travis-ci/travis-ci/issues/3713
 
 matrix:
   include:
@@ -44,7 +44,7 @@ matrix:
       env: TEST=neko
     - os: linux
       env: TEST=js
-      addons: {sauce_connect: true}
+      addons: {apt: {packages: *apt_common}, sauce_connect: true}
     - os: linux
       env: TEST=php
       addons: {apt: {packages: *apt_php}}
