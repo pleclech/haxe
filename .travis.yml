@@ -14,20 +14,48 @@ env:
     - secure: SjyKefmjUEXi0IKHGGpcbLAajU0mLHONg8aA8LoY7Q9nAkSN6Aql+fzS38Boq7w1jWn+2FOpr+4jy0l6wVd/bftsF+huFfYpFJmdh8BlKmE0K71zZAral0H1c7YxkuQpPiJCIFGXqtkvev7SWTy0z31u7kuuQeEyW27boXe5cDA=
     # SAUCE_ACCESS_KEY
     - secure: sUvWUjCyPuWht4seNa4f2VG9DkvXkhZyLZfjJO9TUAHB2JndS16E2j/qrvKEjycyH6w8tU/B9vnjDRvvGrYXxEXcBEwsJVfkorFnRl9uwGCGIYrzjMhssEl3fMYZK7P304f+gAp5ULrDBX2gIaKeSa8lUNRtz2PsZOieE4kMdhk=
-  matrix:
-    - TEST=third-party
-    - TEST=macro
-    - TEST=neko
-    - TEST=js
-    - TEST=php
-    - TEST=cpp
-    - TEST=flash9
-    - TEST=as3
-    - TEST=java
-    - TEST=cs
-    - TEST=python
+
+# Use container-based infrastructure.
+# http://docs.travis-ci.com/user/workers/container-based-infrastructure/
+sudo: false
+addons:
+  apt:
+    packages: &common_apt
+      - ocaml-native-compilers
+      - camlp4
+      - zlib1g-dev
+      - libgc-dev
+
+apt_targets:
+  - &apt_cpp    [*common_apt, gcc-multilib, g++-multilib]
+  - &apt_php    [*common_apt, php5-cli, php5-mysql, php5-sqlite]
+  - &apt_cs     [*common_apt, mono-devel, mono-mcs]
+  - &apt_python [*common_apt, python3]
+  - &apt_flash  [*common_apt, libgd2-xpm, ia32-libs, ia32-libs-multiarch]
 
 matrix:
+  include:
+    - env: TEST=third-party
+      addons: {apt: {packages: [*apt_php, *apt_cpp, *apt_cs, *apt_python]}}
+    - env: TEST=macro
+      addons: {apt: {packages: *apt_cs}}
+    - env: TEST=neko
+    - env: TEST=js
+    - env: TEST=php
+      addons: {apt: {packages: *apt_php}}
+    - env: TEST=cpp
+      addons: {apt: {packages: *apt_cpp}}
+    - env: TEST=flash9
+      sudo: required
+      # addons: {apt: {packages: *apt_flash}}
+    - env: TEST=as3
+      sudo: required
+      # addons: {apt: {packages: *apt_flash}}
+    - env: TEST=java
+    - env: TEST=cs
+      addons: {apt: {packages: *apt_cs}}
+    - env: TEST=python
+      addons: {apt: {packages: *apt_python}}
   # fast_finish: true #https://github.com/travis-ci/travis-ci/issues/1696
 
 before_script:
@@ -41,10 +69,6 @@ install:
     export TRAVIS_OS_NAME=linux;
     fi
   # Install haxe and neko dependencies
-  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-    travis_retry sudo apt-get update -qq;
-    travis_retry sudo apt-get install ocaml-native-compilers zlib1g-dev libgc-dev -qq;
-    fi
   - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
     travis_retry brew update;
     travis_retry brew install caskroom/cask/brew-cask;
@@ -53,7 +77,11 @@ install:
   # Install neko
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
     travis_retry git clone https://github.com/HaxeFoundation/neko.git ~/neko;
-    cd ~/neko && make os=${TRAVIS_OS_NAME} -s && sudo make install -s;
+    cd ~/neko;
+    make os=${TRAVIS_OS_NAME} -s;
+    export PATH="$PATH:$HOME/neko/bin";
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/neko/bin";
+    export NEKOPATH="$HOME/neko/bin";
     cd $TRAVIS_BUILD_DIR;
     fi
   - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
@@ -63,7 +91,8 @@ install:
 script:
   - make -s
   - make tools -s
-  - sudo make install -s
+  - export PATH="$PATH:$TRAVIS_BUILD_DIR"
+  - export HAXE_STD_PATH="$TRAVIS_BUILD_DIR/std"
   - cd tests/
   - mkdir ~/haxelib && haxelib setup ~/haxelib
   - haxe -version

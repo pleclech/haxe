@@ -317,7 +317,7 @@ class RunCi {
 				if (commandSucceed("php", ["-v"])) {
 					infoMsg('php has already been installed.');
 				} else {
-					runCommand("sudo", ["apt-get", "install", "php5", "-qq"], true);
+					runCommand("sudo", ["apt-get", "install", "php5-cli", "-qq"], true);
 					runCommand("sudo", ["apt-get", "install", "php5-mysql", "php5-sqlite", "-qq"], true);
 				}
 			case "Mac":
@@ -338,10 +338,12 @@ class RunCi {
 		if (gotCppDependencies) return;
 
 		//hxcpp dependencies
-		switch (systemName) {
-			case "Linux":
+		switch [systemName, ci] {
+			case ["Linux", TravisCI]:
+				//pass
+			case ["Linux", _]:
 				runCommand("sudo", ["apt-get", "install", "gcc-multilib", "g++-multilib", "-qq"], true);
-			case "Mac":
+			case _:
 				//pass
 		}
 
@@ -549,7 +551,6 @@ class RunCi {
 						case TravisCI:
 							changeDirectory(repoDir);
 							runCommand("make", ["BYTECODE=1", "-s"]);
-							runCommand("sudo", ["make", "install", "-s"]);
 							changeDirectory(unitDir);
 							runCommand("haxe", ["compile-macro.hxml"]);
 						case AppVeyor:
