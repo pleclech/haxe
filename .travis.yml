@@ -6,10 +6,6 @@ env:
     - OCAMLC=ocamlc.opt
     - OCAMLOPT=ocamlopt.opt
     - ADD_REVISION=1
-    # SAUCE_USERNAME
-    - secure: SjyKefmjUEXi0IKHGGpcbLAajU0mLHONg8aA8LoY7Q9nAkSN6Aql+fzS38Boq7w1jWn+2FOpr+4jy0l6wVd/bftsF+huFfYpFJmdh8BlKmE0K71zZAral0H1c7YxkuQpPiJCIFGXqtkvev7SWTy0z31u7kuuQeEyW27boXe5cDA=
-    # SAUCE_ACCESS_KEY
-    - secure: sUvWUjCyPuWht4seNa4f2VG9DkvXkhZyLZfjJO9TUAHB2JndS16E2j/qrvKEjycyH6w8tU/B9vnjDRvvGrYXxEXcBEwsJVfkorFnRl9uwGCGIYrzjMhssEl3fMYZK7P304f+gAp5ULrDBX2gIaKeSa8lUNRtz2PsZOieE4kMdhk=
 
 # Use container-based infrastructure.
 # http://docs.travis-ci.com/user/workers/container-based-infrastructure/
@@ -43,7 +39,11 @@ matrix:
     - os: linux
       env: TEST=neko
     - os: linux
-      env: TEST=js
+      env:
+        - TEST=js
+        # SAUCE_USERNAME and SAUCE_ACCESS_KEY
+        - secure: SjyKefmjUEXi0IKHGGpcbLAajU0mLHONg8aA8LoY7Q9nAkSN6Aql+fzS38Boq7w1jWn+2FOpr+4jy0l6wVd/bftsF+huFfYpFJmdh8BlKmE0K71zZAral0H1c7YxkuQpPiJCIFGXqtkvev7SWTy0z31u7kuuQeEyW27boXe5cDA=
+        - secure: sUvWUjCyPuWht4seNa4f2VG9DkvXkhZyLZfjJO9TUAHB2JndS16E2j/qrvKEjycyH6w8tU/B9vnjDRvvGrYXxEXcBEwsJVfkorFnRl9uwGCGIYrzjMhssEl3fMYZK7P304f+gAp5ULrDBX2gIaKeSa8lUNRtz2PsZOieE4kMdhk=
       addons: {apt: {packages: *apt_common}, sauce_connect: true}
     - os: linux
       env: TEST=php
