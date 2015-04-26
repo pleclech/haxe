@@ -18,12 +18,10 @@ abstract Functor<I, O>(I->O) from I->O to I->O {
 
 class TestAbstractGeneric extends Test {
 	function testAbstractConversion() {
-        /*
 		function map<A, B>(a:Array<A>, f:Functor<A, B>):Array<B> {
     		return [for (x in a) f(x)];
   		}
 		var a = [new PGen('name', 'James'), new PGen('surname', 'Bond')];
 		var b = map(a, function (key, value) return 'My $key is $value.');
-        */
 	}
 }
