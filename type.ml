@@ -1509,8 +1509,6 @@ let rec unify a b =
 	| TAbstract (a1,tl1) , TAbstract (a2,tl2) ->
 		unify_abstracts a b a1 tl1 a2 tl2
 	| TInst (c1,tl1) , TInst (c2,tl2) ->
-		let tl1 = get_type_list tl1 c1 in
-		let tl2 = get_type_list tl2 c2 in
 		let rec loop c tl =
 			if c == c2 then begin
 				unify_type_params a b tl tl2;
