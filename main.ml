@@ -1688,7 +1688,6 @@ with
 			| DMFunArgs i -> i
 			| _ -> -1
 		in
-		Printf.printf "\ni:%d\n" i;
 		List.iter (fun t ->
 			Buffer.add_string b "<type>\n";
 			if (i >= 0) then Buffer.add_string b (Printf.sprintf "%d@" i);
