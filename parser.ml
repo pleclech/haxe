@@ -74,7 +74,8 @@ let use_doc = ref false
 let use_parser_resume = ref true
 let resume_display = ref null_pos
 let in_macro = ref false
-let fun_arg_display_index = ref (-1)
+
+let ide_helper = ref None
 
 let last_token s =
 	let n = Stream.count s in
@@ -1238,7 +1239,10 @@ and expr = parser
 		| [< e = secure_expr >] -> expr_next (ECast (e,None),punion p1 (pos e)) s)
 	| [< '(Kwd Throw,p); e = expr >] -> (EThrow e,p)
 	| [< '(Kwd New,p1); t = parse_type_path; '(POpen,p); s >] ->
-		if is_resuming p then display (EDisplayNew t,punion p1 p);
+		if is_resuming p then begin
+			ide_helper := Some {id_type=Some(ITConstructor(p.pmax, -1))};
+			display (EDisplayNew t,punion p1 p);
+		end;
 		(match s with parser
 		| [< al = parse_new_params t p; '(PClose,p2); s >] -> expr_next (ENew (t,al),punion p1 p2) s
 		| [< >] -> serror())
@@ -1322,12 +1326,15 @@ and expr_next e1 = parser
 			| (EConst (Int v),p2) when p2.pmax = p.pmin -> expr_next (EConst (Float (v ^ ".")),punion p p2) s
 			| _ -> serror())
 	| [< '(POpen,p1); s >] ->
-		if is_resuming p1 then display (EDisplay (e1,true),p1);
+		if is_resuming p1 then begin
+			ide_helper := Some {id_type=Some(ITFunction(p1.pmax, -1))};
+			display (EDisplay (e1,true),p1);
+		end;
 		(match s with parser
 		| [< '(Binop OpOr,p2) when do_resume() >] ->
 			set_resume p1;
 			display (EDisplay (e1,true),p1) (* help for debug display mode *)
-		| [< params = parse_call_params e1; '(PClose,p2); s >] -> expr_next (ECall (e1,params) , punion (pos e1) p2) s
+		| [< params = parse_call_params ~op_pos:p1 e1; '(PClose,p2); s >] -> expr_next (ECall (e1,params) , punion (pos e1) p2) s
 		| [< >] -> serror())
 	| [< '(BkOpen,_); e2 = expr; '(BkClose,p2); s >] ->
 		expr_next (EArray (e1,e2), punion (pos e1) p2) s
@@ -1403,7 +1410,7 @@ and parse_new_params t p s = match s with parser
 		let rec loop acc = match s with parser
 			| [< '(Comma, pc) >] ->
 				if is_resuming pc then begin
-					fun_arg_display_index := List.length acc;
+					ide_helper := Some {id_type=Some(ITConstructor(p.pmax, List.length acc))};
 					display (EDisplayNew t,punion pc p)
 				end;
 				(match s with parser [< v = expr >] -> loop (v::acc))
@@ -1412,7 +1419,7 @@ and parse_new_params t p s = match s with parser
 		loop [v]
 	| [< >] -> []
 
-and parse_call_params ec s =
+and parse_call_params ?(op_pos=null_pos) ec s =
 	let e = (try
 		match s with parser
 		| [< e = expr >] -> Some e
@@ -1427,7 +1434,7 @@ and parse_call_params ec s =
 			match s with parser
 			| [< '(Comma, pc) >] ->
 				if is_resuming pc then begin
-					fun_arg_display_index := List.length acc;
+					ide_helper := Some {id_type=Some(ITFunction(op_pos.pmax, List.length acc))};
 					display (EDisplay (ec, true), pc)
 				end;
 				(match s with parser [< e = expr >] -> loop (e::acc))
@@ -1546,11 +1553,12 @@ let parse ctx code =
 	let old = Lexer.save() in
 	let old_cache = !cache in
 	let mstack = ref [] in
-	let old_fadi = !fun_arg_display_index in
+	let old_ih = !ide_helper in
 	cache := DynArray.create();
 	last_doc := None;
 	in_macro := Common.defined ctx Common.Define.Macro;
 	Lexer.skip_header code;
+	ide_helper := None;
 
 	let sraw = Stream.from (fun _ -> Some (Lexer.token code)) in
 	let rec next_token() = process_token (Lexer.token code)
@@ -1627,12 +1635,13 @@ let parse ctx code =
 	let restore() =
 		cache := old_cache;
 		Lexer.restore old;
-		let i = !fun_arg_display_index in
-		begin match ctx.display with
-			| DMFunArgs j when j < 0 ->  ctx.display <- DMFunArgs i 
+		let ih = !ide_helper in
+		let open Common in
+		begin match ih with
+			| Some h -> ctx.ide_support <- h
 			| _ -> ()
 		end;
-		fun_arg_display_index := old_fadi
+		ide_helper := old_ih
 	in
 	let s = Stream.from (fun _ ->
 		let t = next_token() in

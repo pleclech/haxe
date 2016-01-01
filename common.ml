@@ -104,7 +104,6 @@ type display_mode =
 	| DMToplevel
 	| DMResolve of string
 	| DMType
-	| DMFunArgs of int
 
 type context = {
 	(* config *)
@@ -112,6 +111,7 @@ type context = {
 	args : string list;
 	mutable sys_args : string list;
 	mutable display : display_mode;
+	mutable ide_support: ide_def;
 	mutable debug : bool;
 	mutable verbose : bool;
 	mutable foptimize : bool;
@@ -713,6 +713,7 @@ let create v args =
 		sys_args = args;
 		debug = false;
 		display = !display_default;
+		ide_support = {id_type=None;};
 		verbose = false;
 		foptimize = true;
 		features = Hashtbl.create 0;

@@ -173,7 +173,7 @@ let complete_fields com fields =
 	let b = Buffer.create 0 in
 	let details = Common.raw_defined com "display-details" in
 	Buffer.add_string b "<list>\n";
-	List.iter (fun (n,t,k,d) ->
+	List.iter (fun (n,t,k,d,ip) ->
 		let s_kind = match k with
 			| Some k -> (match k with
 				| Typer.FKVar -> "var"
@@ -183,10 +183,10 @@ let complete_fields com fields =
 			| None -> ""
 		in
 		if details then
-			Buffer.add_string b (Printf.sprintf "<i n=\"%s\" k=\"%s\"><t>%s</t><d>%s</d></i>\n" n s_kind (htmlescape t) (htmlescape d))
+			Buffer.add_string b (Printf.sprintf "<i n=\"%s\" k=\"%s\" ip=\"%d\"><t>%s</t><d>%s</d></i>\n" n s_kind (if ip then 1 else 0) (htmlescape t) (htmlescape d))
 		else
-			Buffer.add_string b (Printf.sprintf "<i n=\"%s\"><t>%s</t><d>%s</d></i>\n" n (htmlescape t) (htmlescape d))
-	) (List.sort (fun (a,_,ak,_) (b,_,bk,_) -> compare (ak,a) (bk,b)) fields);
+			Buffer.add_string b (Printf.sprintf "<i n=\"%s\" ip=\"%d\"><t>%s</t><d>%s</d></i>\n" n (if ip then 1 else 0) (htmlescape t) (htmlescape d))
+	) (List.sort (fun (a,_,ak,_,_) (b,_,bk,_,_) -> compare (ak,a) (bk,b)) fields);
 	Buffer.add_string b "</list>\n";
 	raise (Completion (Buffer.contents b))
 
@@ -1216,7 +1216,7 @@ try
 			| "classes" ->
 				pre_compilation := (fun() -> raise (Parser.TypePath (["."],None,true))) :: !pre_compilation;
 			| "keywords" ->
-				complete_fields com (Hashtbl.fold (fun k _ acc -> (k,"",None,"") :: acc) Lexer.keywords [])
+				complete_fields com (Hashtbl.fold (fun k _ acc -> (k,"",None,"",false) :: acc) Lexer.keywords [])
 			| "memory" ->
 				did_something := true;
 				(try display_memory ctx with e -> prerr_endline (Printexc.get_backtrace ()));
@@ -1241,9 +1241,6 @@ try
 					| "toplevel" ->
 						activate_special_display_mode();
 						DMToplevel
-					| "funargs" ->
-						Parser.use_parser_resume := true;
-						DMFunArgs (-1)	
 					| "" ->
 						Parser.use_parser_resume := true;
 						DMDefault
@@ -1259,6 +1256,7 @@ try
 				in
 				let pos = try int_of_string pos with _ -> failwith ("Invalid format : "  ^ pos) in
 				com.display <- mode;
+				com.ide_support <- {id_type=None;};
 				Common.display_default := mode;
 				Common.define_value com Define.Display (if smode <> "" then smode else "1");
 				Parser.use_doc := true;
@@ -1627,15 +1625,15 @@ with
 		message ctx msg Ast.null_pos
 	| Typer.DisplayFields fields ->
 		let ctx = print_context() in
-		let fields = List.map (fun (name,t,kind,doc) -> name, s_type ctx t, kind, (match doc with None -> "" | Some d -> d)) fields in
+		let fields = List.map (fun (name,t,kind,doc,is_prop) -> name, s_type ctx t, kind, (match doc with None -> "" | Some d -> d), is_prop) fields in
 		let fields = if !measure_times then begin
 			close_times();
 			let tot = ref 0. in
 			Hashtbl.iter (fun _ t -> tot := !tot +. t.total) Common.htimers;
-			let fields = ("@TOTAL", Printf.sprintf "%.3fs" (get_time() -. !start_time), None, "") :: fields in
+			let fields = ("@TOTAL", Printf.sprintf "%.3fs" (get_time() -. !start_time), None, "", false) :: fields in
 			if !tot > 0. then
 				Hashtbl.fold (fun _ t acc ->
-					("@TIME " ^ t.name, Printf.sprintf "%.3fs (%.0f%%)" t.total (t.total *. 100. /. !tot), None, "") :: acc
+					("@TIME " ^ t.name, Printf.sprintf "%.3fs (%.0f%%)" t.total (t.total *. 100. /. !tot), None, "", false) :: acc
 				) Common.htimers fields
 			else fields
 		end else
@@ -1645,13 +1643,17 @@ with
 	| Typecore.DisplayTypes tl ->
 		let ctx = print_context() in
 		let b = Buffer.create 0 in
-		let i = match com.display with
-			| DMFunArgs i -> i
-			| _ -> -1
-		in
 		List.iter (fun t ->
-			Buffer.add_string b "<type>\n";
-			if (i >= 0) then Buffer.add_string b (Printf.sprintf "%d@" i);
+			let opar_pos, index = 
+				match com.ide_support.id_type with
+				| Some(ITFunction(p,i)) -> p, i
+				| Some(ITConstructor(p,i)) -> p, i
+				| _ -> -1, -1
+			in
+			Buffer.add_string b "<type";
+			if opar_pos >= 0 then Buffer.add_string b (Printf.sprintf " opar='%d'" opar_pos);
+			if index >= 0 then Buffer.add_string b (Printf.sprintf " index='%d'" index);
+			Buffer.add_string b ">\n";
 			Buffer.add_string b (htmlescape (s_type ctx t));
 			Buffer.add_string b "\n</type>\n";
 		) tl;
@@ -1692,7 +1694,7 @@ with
 				error ctx ("No classes found in " ^ String.concat "." p) Ast.null_pos
 			else
 				complete_fields com (
-					let convert k f = (f,"",Some k,"") in
+					let convert k f = (f,"",Some k,"",false) in
 					(List.map (convert Typer.FKPackage) packs) @ (List.map (convert Typer.FKType) classes)
 				)
 		| Some (c,cur_package) ->
@@ -1726,13 +1728,22 @@ with
 					end;
 					not tinfos.mt_private
 				) m.m_types in
-				let types = if c <> s_module then [] else List.map (fun t -> snd (t_path t),"",Some Typer.FKType,"") public_types in
+				let types = if c <> s_module then [] else List.map (fun t -> snd (t_path t),"",Some Typer.FKType,"",false) public_types in
 				let ctx = print_context() in
 				let make_field_doc cf =
+					let prop = function
+						| {v_read=AccNormal; v_write=AccNormal;} -> false
+						| _ -> true
+					in
+					let k,is_prop = match cf.cf_kind with
+						| Method _ -> Typer.FKMethod, false 
+						| Var acc -> Typer.FKVar, prop acc
+					in
 					cf.cf_name,
 					s_type ctx cf.cf_type,
-					Some (match cf.cf_kind with Method _ -> Typer.FKMethod | Var _ -> Typer.FKVar),
-					(match cf.cf_doc with Some s -> s | None -> "")
+					Some k,
+					(match cf.cf_doc with Some s -> s | None -> ""),
+					is_prop
 				in
 				let types = match !statics with
 					| None -> types

@@ -50,7 +50,7 @@ type display_field_kind =
 	| FKType
 	| FKPackage
 
-exception DisplayFields of (string * t * display_field_kind option * documentation) list
+exception DisplayFields of (string * t * display_field_kind option * documentation * bool) list
 exception DisplayToplevel of identifier_type list
 
 exception WithTypeError of unify_error list * pos
@@ -3771,7 +3771,7 @@ and handle_display ctx e_ast iscall with_type p =
 		let tl = List.filter (fun t -> path <> (t_infos t).mt_path && not (t_infos t).mt_private) m.m_types in
 		let tl = List.map (fun mt ->
 			let infos = t_infos mt in
-			(snd infos.mt_path),type_of_module_type mt,Some FKType,infos.mt_doc
+			(snd infos.mt_path),type_of_module_type mt,Some FKType,infos.mt_doc,false
 		) tl in
 		tl
 	in
@@ -3827,7 +3827,7 @@ and handle_display ctx e_ast iscall with_type p =
 		e
 	| DMToplevel ->
 		collect_toplevel_identifiers ctx;
-	| DMDefault | DMNone | DMFunArgs _ ->
+	| DMDefault | DMNone ->
 		let opt_args args ret = TFun(List.map(fun (n,o,t) -> n,true,t) args,ret) in
 		let e = match e.eexpr with
 			| TField (e1,fa) ->
@@ -3994,8 +3994,15 @@ and handle_display ctx e_ast iscall with_type p =
 		else
 			let get_field acc f =
 				List.fold_left (fun acc f ->
-					let kind = match f.cf_kind with Method _ -> FKMethod | Var _ -> FKVar in
-					if f.cf_public then (f.cf_name,f.cf_type,Some kind,f.cf_doc) :: acc else acc
+					let prop = function
+						| {v_read=AccNormal; v_write=AccNormal;} -> false
+						| _ -> true
+					in
+					let kind, is_prop = match f.cf_kind with 
+						| Method _ -> FKMethod, false
+						| Var acc -> FKVar, prop acc
+					in
+					if f.cf_public then (f.cf_name,f.cf_type,Some kind,f.cf_doc,is_prop) :: acc else acc
 				) acc (f :: f.cf_overloads)
 			in
 			let fields = List.fold_left get_field [] fields in
@@ -4531,7 +4538,7 @@ let make_macro_api ctx p =
 				"NO COMPLETION"
 			with DisplayFields fields ->
 				let pctx = print_context() in
-				String.concat "," (List.map (fun (f,t,_,_) -> f ^ ":" ^ s_type pctx t) fields)
+				String.concat "," (List.map (fun (f,t,_,_,_) -> f ^ ":" ^ s_type pctx t) fields)
 			| DisplayTypes tl ->
 				let pctx = print_context() in
 				String.concat "," (List.map (s_type pctx) tl)

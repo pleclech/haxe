@@ -1,4 +1,4 @@
-<type>
-1@pos : Int -&gt; ?len : Null&lt;Int&gt; -&gt; String
+<type opar='59' index='1'>
+pos : Int -&gt; ?len : Null&lt;Int&gt; -&gt; String
 </type>
 
