@@ -112,6 +112,7 @@ type context = {
 	args : string list;
 	mutable sys_args : string list;
 	mutable display : display_mode;
+	mutable ide_support: ide_def;
 	mutable debug : bool;
 	mutable verbose : bool;
 	mutable foptimize : bool;
@@ -222,7 +223,6 @@ module Define = struct
 		| NoOpt
 		| NoPatternMatching
 		| NoRoot
-		| NoSimplify
 		| NoSwfCompress
 		| NoTraces
 		| Objc
@@ -310,7 +310,6 @@ module Define = struct
 		| NoInline -> ("no_inline","Disable inlining")
 		| NoRoot -> ("no_root","Generate top-level types into haxe.root namespace")
 		| NoMacroCache -> ("no_macro_cache","Disable macro context caching")
-		| NoSimplify -> "no_simplify",("Disable simplification filter")
 		| NoSwfCompress -> ("no_swf_compress","Disable SWF output compression")
 		| NoTraces -> ("no_traces","Disable all trace calls")
 		| Objc -> ("objc","Sets the hxcpp output to objective-c++ classes. Must be defined for interop")
@@ -715,6 +714,7 @@ let create v args =
 		sys_args = args;
 		debug = false;
 		display = !display_default;
+		ide_support = {id_type=None;};
 		verbose = false;
 		foptimize = true;
 		features = Hashtbl.create 0;

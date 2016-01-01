@@ -1,0 +1,1 @@
+class Main {public var foo:Bool;public var bar(get, null):Int;function get_bar() return 12345;public function new() {var foo=this.bar;}}

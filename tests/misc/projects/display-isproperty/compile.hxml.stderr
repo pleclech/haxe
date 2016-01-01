@@ -1,0 +1,6 @@
+<list>
+<i n="bar" ip="1"><t>Int</t><d></d></i>
+<i n="foo" ip="0"><t>Bool</t><d></d></i>
+<i n="get_bar" ip="0"><t>Void -&gt; Unknown&lt;0&gt;</t><d></d></i>
+</list>
+
