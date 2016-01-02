@@ -17,6 +17,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *)
 
+open Idesupport
 open Ast
 open Type
 
@@ -104,7 +105,6 @@ type display_mode =
 	| DMToplevel
 	| DMResolve of string
 	| DMType
-	| DMFunArgs of int
 
 type context = {
 	(* config *)

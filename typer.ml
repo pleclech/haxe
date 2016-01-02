@@ -17,6 +17,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *)
 
+open Idesupport
 open Ast
 open Type
 open Common
@@ -50,7 +51,7 @@ type display_field_kind =
 	| FKType
 	| FKPackage
 
-exception DisplayFields of (string * t * display_field_kind option * documentation * bool) list
+exception DisplayFields of (string * t * display_field_kind option * documentation * ide_context option) list
 exception DisplayToplevel of identifier_type list
 
 exception WithTypeError of unify_error list * pos
@@ -3771,7 +3772,7 @@ and handle_display ctx e_ast iscall with_type p =
 		let tl = List.filter (fun t -> path <> (t_infos t).mt_path && not (t_infos t).mt_private) m.m_types in
 		let tl = List.map (fun mt ->
 			let infos = t_infos mt in
-			(snd infos.mt_path),type_of_module_type mt,Some FKType,infos.mt_doc,false
+			(snd infos.mt_path),type_of_module_type mt,Some FKType,infos.mt_doc,None
 		) tl in
 		tl
 	in
@@ -3827,7 +3828,7 @@ and handle_display ctx e_ast iscall with_type p =
 		e
 	| DMToplevel ->
 		collect_toplevel_identifiers ctx;
-	| DMDefault | DMNone | DMFunArgs _ ->
+	| DMDefault | DMNone ->
 		let opt_args args ret = TFun(List.map(fun (n,o,t) -> n,true,t) args,ret) in
 		let e = match e.eexpr with
 			| TField (e1,fa) ->
@@ -3861,6 +3862,9 @@ and handle_display ctx e_ast iscall with_type p =
 				| Some ({cf_doc = None} as cf),Some cf2 -> cf.cf_doc <- cf2.cf_doc
 				| _ -> ()
 		in
+		let ide_map = ref PMap.empty in
+		let set_idectx n ctx = ide_map := PMap.add n ctx !ide_map in
+		let get_idectx n = try Some (PMap.find n !ide_map) with Not_found -> None in
 		let rec get_fields t =
 			match follow t with
 			| TInst (c,params) ->
@@ -3877,7 +3881,9 @@ and handle_display ctx e_ast iscall with_type p =
 						| None -> m
 						| Some (csup,cparams) -> merge m (loop csup cparams)
 					) in
-					let m = merge ~cond:(fun f -> priv || can_access ctx c f false) c.cl_fields m in
+					let m = merge ~cond:(fun f ->
+						set_idectx f.cf_name (get_flag_access priv f);
+						priv || can_access ctx c f false) c.cl_fields m in
 					let m = (match c.cl_kind with
 						| KTypeParameter pl -> List.fold_left (fun acc t -> merge acc (get_fields t)) m pl
 						| _ -> m
@@ -3908,6 +3914,7 @@ and handle_display ctx e_ast iscall with_type p =
 					if f.cf_name <> "_new" && can_access ctx c f true && Meta.has Meta.Impl f.cf_meta && not (Meta.has Meta.Enum f.cf_meta) then begin
 						let f = prepare_using_field f in
 						let t = apply_params a.a_params pl (follow f.cf_type) in
+						ide_map := PMap.add f.cf_name (get_flag_access true f) !ide_map;
 						PMap.add f.cf_name { f with cf_public = true; cf_type = opt_type t } acc
 					end else
 						acc
@@ -3923,9 +3930,13 @@ and handle_display ctx e_ast iscall with_type p =
 					if Meta.has Meta.CoreApi c.cl_meta then merge_core_doc c;
 					let is_abstract_impl = match c.cl_kind with KAbstractImpl _ -> true | _ -> false in
 					let pm = match c.cl_constructor with None -> PMap.empty | Some cf -> PMap.add "new" cf PMap.empty in
+					let priv = is_parent c ctx.curclass in
 					PMap.fold (fun f acc ->
-						if can_access ctx c f true && (not is_abstract_impl || not (Meta.has Meta.Impl f.cf_meta) || Meta.has Meta.Enum f.cf_meta) then
-							PMap.add f.cf_name { f with cf_public = true; cf_type = opt_type f.cf_type } acc else acc
+						if can_access ctx c f true && (not is_abstract_impl || not (Meta.has Meta.Impl f.cf_meta) || Meta.has Meta.Enum f.cf_meta) then begin
+							set_idectx f.cf_name (get_flag_access priv f);
+							PMap.add f.cf_name { f with cf_public = true; cf_type = opt_type f.cf_type } acc 
+						end
+						else acc
 					) a.a_fields pm
 				| _ ->
 					a.a_fields)
@@ -3994,15 +4005,8 @@ and handle_display ctx e_ast iscall with_type p =
 		else
 			let get_field acc f =
 				List.fold_left (fun acc f ->
-					let prop = function
-						| {v_read=AccNormal; v_write=AccNormal;} -> false
-						| _ -> true
-					in
-					let kind, is_prop = match f.cf_kind with 
-						| Method _ -> FKMethod, false
-						| Var acc -> FKVar, prop acc
-					in
-					if f.cf_public then (f.cf_name,f.cf_type,Some kind,f.cf_doc,is_prop) :: acc else acc
+					let kind = match f.cf_kind with Method _ -> FKMethod | Var acc -> FKVar in
+					if f.cf_public then (f.cf_name,f.cf_type,Some kind,f.cf_doc, get_idectx f.cf_name) :: acc else acc
 				) acc (f :: f.cf_overloads)
 			in
 			let fields = List.fold_left get_field [] fields in

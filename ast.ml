@@ -310,14 +310,6 @@ type type_path = {
 	tsub : string option;
 }
 
-and ide_type =
-	| ITFunction of int * int
-	| ITConstructor of int * int
-
-and ide_def = {
-	id_type : ide_type option;
-}
-
 and type_param_or_const =
 	| TPType of complex_type
 	| TPExpr of expr

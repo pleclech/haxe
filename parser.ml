@@ -17,6 +17,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *)
 
+open Idesupport
 open Ast
 
 type error_msg =
@@ -74,9 +75,6 @@ let use_doc = ref false
 let use_parser_resume = ref true
 let resume_display = ref null_pos
 let in_macro = ref false
-let fun_arg_display_index = ref (-1)
-
-let ide_helper = ref None
 
 let last_token s =
 	let n = Stream.count s in
