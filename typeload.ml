@@ -3311,9 +3311,8 @@ let resolve_module_file com m remap p =
 	let forbid = ref false in
 	let file = (match m with
 		| [] , name ->(try
-				match PMap.find name com.package_rules with
+				match PMap.find (to_key name) com.package_rules with
 				| RemapExtended root ->
-					Printf.printf "resolving %s\n" name;
 					begin match root.value with
 					| Some(xs, n) when xs<>[] ->
 						remap := xs;
