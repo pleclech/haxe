@@ -732,7 +732,7 @@ and wait_loop boot_com host port =
 	let verbose = boot_com.verbose in
 	let has_parse_error = ref false in
 	if verbose then print_endline ("Waiting on " ^ host ^ ":" ^ string_of_int port);
-	let bufsize = 1024 in
+	let bufsize = 4096 in
 	let tmp = String.create bufsize in
 	let cache = {
 		c_haxelib = Hashtbl.create 0;
@@ -887,16 +887,27 @@ and wait_loop boot_com host port =
 			if verbose then begin
 				if r > 0 then Printf.printf "Reading %d bytes\n" r else print_endline "Waiting for data...";
 			end;
-			Buffer.add_substring b tmp 0 r;
-			if r > 0 && tmp.[r-1] = '\000' then
+			let count =
+				if r <= 0 then begin
+					if count = 100 then
+						failwith "Aborting unactive connection"
+					else begin
+						ignore(Unix.select [] [] [] 0.05); (* wait a bit *)
+						count + 1
+					end
+				end
+				else begin
+					Buffer.add_substring b tmp 0 r;
+					if tmp.[r-1] = '\000' then
+						-1
+					else
+						0
+				end
+			in
+			if count = -1 then
 				Buffer.sub b 0 (Buffer.length b - 1)
-			else begin
-				if r = 0 then ignore(Unix.select [] [] [] 0.05); (* wait a bit *)
-				if count = 100 then
-					failwith "Aborting unactive connection"
-				else
-					read_loop (count + 1);
-			end;
+			else
+				read_loop(count)
 		in
 		let rec cache_context com =
 			if com.display = DMNone then begin
